@@ -1,0 +1,134 @@
+// test_simple_shm.edp
+//
+// FreeFEM共有メモリ基本テスト
+// Pythonスクリプトで作成された共有メモリにアクセスします
+
+// 共有メモリプラグインをロード
+load "/usr/local/lib/ff++/4.10/lib/mmap-semaphore.so"
+
+// ログファイル
+ofstream logfile('freefem_shm_test_result.txt');
+logfile << 'FreeFEM 共有メモリ基本テスト開始' << endl;
+
+try {
+    // 共有メモリの設定
+    int key = 12345;  // Pythonと同じキー
+    
+    // 最初に小さいサイズで接続し、実際のサイズを読み取る
+    int initial_size = 4096;  // 4KB (最小ページサイズ)
+    mmap shm;
+    
+    // 共有メモリに接続（既存のものに接続するため、create=0）
+    try {
+        shm = mmap_create(key, initial_size, 0);
+        logfile << '共有メモリに接続しました: key=' << key << ', initial_size=' << initial_size << endl;
+        
+        // Pythonが保存した実際のサイズを読み取り (オフセット8に保存)
+        int actual_size;
+        GetFromMmapInt(shm, 8, actual_size);
+        
+        // 一度接続を解除
+        mmap_destroy(shm);
+        
+        // 実際のサイズで再接続
+        if (actual_size > 0) {
+            logfile << 'Pythonが設定した実際のサイズを読み取りました: ' << actual_size << ' バイト' << endl;
+            shm = mmap_create(key, actual_size, 0);
+            logfile << '共有メモリに再接続しました: key=' << key << ', size=' << actual_size << endl;
+        } else {
+            // サイズが正しく読み取れなかった場合
+            logfile << '警告: 共有メモリのサイズ情報を読み取れませんでした。デフォルトサイズを使用します。' << endl;
+            int page_size = 4096;
+            int pages = 4;  // 4ページ = 16KB
+            int default_size = page_size * pages;
+            shm = mmap_create(key, default_size, 0);
+            logfile << '共有メモリに再接続しました: key=' << key << ', default_size=' << default_size << endl;
+        }
+    } catch(...) {
+        logfile << 'エラー: 共有メモリへの接続に失敗しました。' << endl;
+        logfile.close();
+        exit(1);
+    }
+    
+    // 文字列の読み込み
+    string buffer(30);  // 十分なサイズのバッファを確保
+    GetFromMmapStringN(shm, 0, buffer, 30);
+    logfile << 'メッセージを読み込みました: ' << buffer << endl;
+    
+    // 別のメッセージを書き込み
+    string freefem_msg = 'Hello from FreeFEM!';
+    SetInMmapStringN(shm, 50, freefem_msg, freefem_msg.length());
+    logfile << '新しいメッセージを書き込みました: ' << freefem_msg << endl;
+    
+    // 整数値をオフセット200に書き込み
+    int test_int = 9876;
+    SetInMmapInt(shm, 200, test_int);
+    logfile << '整数値を書き込みました: ' << test_int << endl;
+    
+    // 浮動小数点値をオフセット204に書き込み
+    real test_real = 2.71828;
+    SetInMmapDouble(shm, 204, test_real);
+    logfile << '浮動小数点値を書き込みました: ' << test_real << endl;
+    
+    // 配列テスト (小さいサイズに調整)
+    real[int] array(3);  // Pythonスクリプトと合わせて要素数を3に
+    for (int i = 0; i < 3; i++) {
+        array[i] = (i + 1) * 10.0;
+    }
+    
+    // 配列サイズを書き込み（オフセット600）
+    int array_size = 3;
+    SetInMmapInt(shm, 600, array_size);
+    
+    // 配列要素を1つずつ書き込み（オフセット604から）
+    for (int i = 0; i < array_size; i++) {
+        SetInMmapDouble(shm, 604 + i * 8, array[i]);
+    }
+    
+    logfile << '配列を書き込みました: ';
+    for (int i = 0; i < array_size; i++) {
+        logfile << array[i] << ' ';
+    }
+    logfile << endl;
+    
+    // Pythonスクリプトで書き込まれたJSONデータを読み取る
+    int json_len;
+    GetFromMmapInt(shm, 100, json_len);
+    logfile << 'JSONデータ長: ' << json_len << ' バイト' << endl;
+    
+    // JSONデータは単純に文字列として読み込むだけにする（FreeFEMにはJSONパーサーがない）
+    string json_buffer(json_len + 1);
+    GetFromMmapStringN(shm, 104, json_buffer, json_len);
+    logfile << 'JSONデータを読み込みました: ' << json_buffer << endl;
+    
+    // 配列データを読み込む
+    int numpy_array_size;
+    GetFromMmapInt(shm, 500, numpy_array_size);  // オフセットを500に変更
+    logfile << 'NumPy配列サイズ: ' << numpy_array_size << ' バイト' << endl;
+    
+    real[int] numpy_array(3);  // 3要素に変更
+    for (int i = 0; i < 3; i++) {
+        GetFromMmapDouble(shm, 504 + i * 8, numpy_array[i]);  // オフセットを504に変更
+    }
+    
+    logfile << 'NumPy配列を読み込みました: ';
+    for (int i = 0; i < 3; i++) {
+        logfile << numpy_array[i] << ' ';
+    }
+    logfile << endl;
+    
+    // 正常終了フラグをセット
+    SetInMmapInt(shm, 3000, 1);
+    logfile << '正常終了フラグをセットしました' << endl;
+    
+    // 共有メモリを解放（削除ではなくデタッチのみ）
+    mmap_destroy(shm);
+    logfile << '共有メモリからデタッチしました' << endl;
+    logfile << 'FreeFEM 共有メモリ基本テスト終了' << endl;
+    
+} catch(...) {
+    logfile << 'エラー: 実行中に例外が発生しました' << endl;
+}
+
+// ログファイルを閉じる
+logfile.close(); 

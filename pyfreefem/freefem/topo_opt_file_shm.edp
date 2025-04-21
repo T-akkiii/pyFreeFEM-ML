@@ -1,0 +1,216 @@
+// トポロジー最適化 - Python-FreeFEM通信サンプル
+// このスクリプトはPythonからデータを受け取り、トポロジー最適化の1反復を実行し、
+// 結果をPythonに返します。
+
+// パラメータ
+int iter = getARGV("-iter", 0);      // 反復回数
+string result_dir = getARGV("-result_dir", "./results"); // 結果保存ディレクトリ
+
+// ----------------------------------------------------------------------
+// 外部で定義されたlibrary-communication.edpをロード
+// これには共有メモリ通信のための関数が含まれています
+include "library-communication.edp"
+// ----------------------------------------------------------------------
+
+// Pythonからデータをロード
+int nelx = readIntData("nelx");      // x方向の要素数
+int nely = readIntData("nely");      // y方向の要素数
+real volfrac = readDoubleData("volfrac"); // 体積制約
+real penal = readDoubleData("penal");    // ペナルティパラメータ
+real rmin = readDoubleData("rmin");      // フィルタ半径
+
+// 密度フィールドを読み込み
+real[int] x0(nelx*nely);
+readArrayData("density", x0);
+
+// メッシュ生成
+mesh Th = square(nelx, nely, [nelx*x, nely*y]);
+
+// 有限要素空間
+fespace Vh(Th, P1);    // 変位の有限要素空間
+fespace Dh(Th, P0);    // 密度の有限要素空間（要素ごとに定数）
+
+// 材料特性
+real E0 = 1.0;      // ヤング率（仮想材料）
+real Emin = 1e-9;   // 最小ヤング率（数値的安定性のため）
+real nu = 0.3;      // ポアソン比
+
+// 荷重条件
+real fx = 0.0;
+real fy = -1.0;
+
+// 変数宣言
+Vh u, v;            // 変位（試験関数）
+Vh ux, uy;          // 変位成分
+Dh rho;             // 密度分布
+Dh dC;              // コンプライアンスの感度
+
+// 密度フィールドをメッシュにマッピング
+int i, j, e;
+for(i = 0; i < nely; i++) {
+    for(j = 0; j < nelx; j++) {
+        e = i * nelx + j;
+        rho[][e] = x0[e];
+    }
+}
+
+// 固定パラメータ（平面応力）
+real lambda = E0 * nu / (1.0 - nu^2);
+real mu = E0 / (2.0 * (1.0 + nu));
+
+// 弾性テンソル
+func E = Emin + (E0 - Emin) * rho^penal;
+
+// 弾性テンソルによるエネルギー密度
+macro epsilon(u) [dx(u), dy(u), (dx(u#y) + dy(u#x))/sqrt(2.)] //
+macro sigma(u) [(lambda+2.*mu)*epsilon(u)[0] + lambda*epsilon(u)[1], lambda*epsilon(u)[0] + (lambda+2.*mu)*epsilon(u)[1], sqrt(2.)*mu*epsilon(u)[2]] //
+
+// 変位問題
+varf vdisplace([ux,uy], [u,v]) = 
+    int2d(Th)(
+        E * (
+            epsilon(u)[0]*epsilon(ux)[0] + 
+            epsilon(u)[1]*epsilon(uy)[1] + 
+            epsilon(u)[2]*epsilon(ux)[2]
+        )
+    )
+    + int2d(Th)(
+        fx*u + fy*v
+    )
+    + on(1, ux=0, uy=0);  // 左辺は固定
+
+// 問題を解く
+matrix K = vdisplace(Vh, Vh);
+real[int] F = vdisplace(0, Vh);
+set(K, solver=sparsesolver);
+real[int] U = K^-1 * F;
+
+// 変位フィールドを更新
+[ux[], uy[]] = U;
+
+// コンプライアンスを計算
+real compliance = int2d(Th)(
+    E * (
+        epsilon(ux)[0]^2 + epsilon(uy)[1]^2 + 
+        2.0 * epsilon(ux)[0] * epsilon(uy)[1] + 
+        0.5 * epsilon(ux)[2]^2
+    )
+);
+
+// コンプライアンスの感度を計算
+for(i = 0; i < nely; i++) {
+    for(j = 0; j < nelx; j++) {
+        e = i * nelx + j;
+        real sK = - penal * (E0 - Emin) * rho[][e]^(penal-1);
+        real eK = int2d(Th, e)(
+            (
+                epsilon(ux)[0]^2 + epsilon(uy)[1]^2 + 
+                2.0 * epsilon(ux)[0] * epsilon(uy)[1] + 
+                0.5 * epsilon(ux)[2]^2
+            )
+        );
+        dC[][e] = sK * eK;
+    }
+}
+
+// 感度フィルタリング
+Dh dCf = dC;
+for(i = 0; i < nely; i++) {
+    for(j = 0; j < nelx; j++) {
+        int e1 = i * nelx + j;
+        real sum = 0.0;
+        real sumW = 0.0;
+        
+        for(int k = max(i-int(rmin), 0); k <= min(i+int(rmin), nely-1); k++) {
+            for(int l = max(j-int(rmin), 0); l <= min(j+int(rmin), nelx-1); l++) {
+                int e2 = k * nelx + l;
+                real fac = rmin - sqrt((i-k)^2 + (j-l)^2);
+                if (fac > 0) {
+                    sum += fac * dC[][e2];
+                    sumW += fac;
+                }
+            }
+        }
+        dCf[][e1] = sum / sumW;
+    }
+}
+
+// 最適化アルゴリズム（OC法）
+real l1 = 0.0;
+real l2 = 1e9;
+real move = 0.2;
+real[int] xnew(nelx*nely);
+
+while ((l2-l1)/(l1+l2) > 1e-4) {
+    real lmid = 0.5 * (l1 + l2);
+    
+    // OC更新
+    for(i = 0; i < nely; i++) {
+        for(j = 0; j < nelx; j++) {
+            e = i * nelx + j;
+            real xval = rho[][e];
+            real dc = dCf[][e];
+            
+            // 設計変数の更新
+            real xBe = -dc / lmid;
+            if (xBe > 0) xBe = min(xval + move, xval * sqrt(xBe));
+            else xBe = max(xval - move, xval / sqrt(-xBe));
+            
+            // 設計変数の制約
+            xnew[e] = min(1.0, max(0.0, xBe));
+        }
+    }
+    
+    // 体積制約のチェック
+    real sumx = 0.0;
+    for(e = 0; e < nelx*nely; e++) {
+        sumx += xnew[e];
+    }
+    real volume = sumx / (nelx*nely);
+    
+    // 体積ラグランジュ乗数の更新
+    if (volume > volfrac) l1 = lmid;
+    else l2 = lmid;
+}
+
+// 新しい密度フィールドを更新
+for(e = 0; e < nelx*nely; e++) {
+    x0[e] = xnew[e];
+}
+
+// 現在の体積比を計算
+real volume = 0.0;
+for(e = 0; e < nelx*nely; e++) {
+    volume += x0[e];
+}
+volume = volume / (nelx*nely);
+
+// 結果をPythonに送信
+writeArrayData("density", x0);
+
+// 結果を出力
+cout << "compliance = " << compliance << endl;
+cout << "volume = " << volume << endl;
+
+// 反復結果を保存（デバッグ用）
+{
+    ofstream f(result_dir + "/density_" + iter + ".txt");
+    for(i = 0; i < nely; i++) {
+        for(j = 0; j < nelx; j++) {
+            e = i * nelx + j;
+            f << x0[e] << (j < nelx-1 ? " " : "");
+        }
+        f << endl;
+    }
+}
+
+// 変位場を保存（デバッグ用）
+if(iter % 10 == 0) {
+    ofstream f(result_dir + "/displacement_" + iter + ".txt");
+    for(i = 0; i < Th.nv; i++) {
+        f << ux[][i] << " " << uy[][i] << endl;
+    }
+}
+
+// 終了メッセージ
+cout << "Iteration " << iter << " completed." << endl; 

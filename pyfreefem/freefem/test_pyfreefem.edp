@@ -1,0 +1,123 @@
+/*
+ * test_pyfreefem.edp
+ * PyFreeFEMテスト用FreeFEMスクリプト
+ * 共有メモリを介してPythonから渡されたデータを読み取り、処理して結果を書き戻す
+ */
+
+// mmap-semaphoreプラグインをロード
+load "mmap-semaphore"
+
+// 共有メモリ名を定義
+string shm_name = "pyfreefem_shm";
+
+// 共有メモリハンドラを作成（既存の共有メモリに接続）
+mmap shm = mmap_open(shm_name);
+
+if (!shm) {
+    cout << "エラー: 共有メモリに接続できませんでした: " << shm_name << endl;
+    exit(1);
+}
+
+// テスト結果ファイル
+ofstream result("pyfreefem_test_result.txt");
+result << "FreeFEM側テスト実行開始" << endl;
+
+try {
+    // データの読み込みテスト
+    // ------------------
+    result << "データ読み込みテスト開始" << endl;
+    
+    // 整数値テスト
+    int test_int = mmap_read_int(shm, "test_int");
+    result << "整数値を読み込みました: test_int = " << test_int << endl;
+    
+    // 倍精度浮動小数点値テスト
+    real test_double = mmap_read_double(shm, "test_double");
+    result << "浮動小数点値を読み込みました: test_double = " << test_double << endl;
+    
+    // 文字列テスト
+    string test_string = mmap_read_string(shm, "test_string");
+    result << "文字列を読み込みました: test_string = " << test_string << endl;
+    
+    // 配列テスト
+    int array_size = mmap_read_int(shm, "test_array_size");
+    real[int] test_array(array_size);
+    for (int i = 0; i < array_size; i++) {
+        test_array[i] = mmap_read_double(shm, "test_array_" + i);
+    }
+    
+    result << "配列を読み込みました: [";
+    for (int i = 0; i < array_size; i++) {
+        result << test_array[i];
+        if (i < array_size - 1) result << ", ";
+    }
+    result << "]" << endl;
+    
+    // データ処理テスト
+    // ------------------
+    result << "データ処理テスト開始" << endl;
+    
+    // 整数値に10を加える
+    int new_test_int = test_int + 10;
+    result << "整数値処理結果: " << new_test_int << endl;
+    
+    // 浮動小数点値を2倍する
+    real new_test_double = test_double * 2.0;
+    result << "浮動小数点値処理結果: " << new_test_double << endl;
+    
+    // 文字列を大文字に変換
+    // FreeFEMでは文字列操作は制限されているため、メッセージを追加
+    string new_test_string = test_string + " [処理済]";
+    result << "文字列処理結果: " << new_test_string << endl;
+    
+    // 配列の各要素に5を加える
+    real[int] new_test_array(array_size);
+    for (int i = 0; i < array_size; i++) {
+        new_test_array[i] = test_array[i] + 5.0;
+    }
+    
+    result << "配列処理結果: [";
+    for (int i = 0; i < array_size; i++) {
+        result << new_test_array[i];
+        if (i < array_size - 1) result << ", ";
+    }
+    result << "]" << endl;
+    
+    // 処理結果をメモリに書き戻す
+    // ------------------
+    result << "処理結果書き込みテスト開始" << endl;
+    
+    // 整数値を書き込む
+    mmap_write_int(shm, "result_int", new_test_int);
+    result << "整数値を書き込みました: result_int = " << new_test_int << endl;
+    
+    // 浮動小数点値を書き込む
+    mmap_write_double(shm, "result_double", new_test_double);
+    result << "浮動小数点値を書き込みました: result_double = " << new_test_double << endl;
+    
+    // 文字列を書き込む
+    mmap_write_string(shm, "result_string", new_test_string);
+    result << "文字列を書き込みました: result_string = " << new_test_string << endl;
+    
+    // 配列を書き込む
+    for (int i = 0; i < array_size; i++) {
+        mmap_write_double(shm, "result_array_" + i, new_test_array[i]);
+    }
+    mmap_write_int(shm, "result_array_size", array_size);
+    
+    result << "配列を書き込みました" << endl;
+    
+    // テスト完了フラグを設定
+    mmap_write_int(shm, "test_completed", 1);
+    result << "テスト完了フラグを設定しました" << endl;
+    
+    result << "FreeFEM側テスト実行終了: 成功" << endl;
+}
+catch (...)
+{
+    result << "FreeFEM側テスト実行中にエラーが発生しました" << endl;
+    exit(1);
+}
+
+// 共有メモリハンドラを閉じる
+mmap_close(shm); 

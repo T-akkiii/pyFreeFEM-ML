@@ -1,0 +1,280 @@
+/*
+ * shm_comm.idp - PyFreeFEM共有メモリ通信ライブラリ
+ *
+ * このファイルはFreeFEMからPython間でデータを共有メモリを介して
+ * 交換するための関数を提供します。
+ */
+
+// mmap-semaphoreプラグインをロード
+load "mmap-semaphore"
+
+// グローバル変数
+string __SHMSYS_NAME = "";
+int __SHMSYS_STATUS = -1;
+
+// 共有メモリ初期化
+func int InitSharedMemory(string shm_name, int shm_size)
+{
+    __SHMSYS_NAME = shm_name;
+    __SHMSYS_STATUS = createSharedMemory(__SHMSYS_NAME, shm_size);
+    return __SHMSYS_STATUS;
+}
+
+// 共有メモリクリーンアップ
+func int CleanupSharedMemory()
+{
+    __SHMSYS_STATUS = -1;
+    return 0;
+}
+
+// ----- 整数操作 ----- //
+
+// 整数値読み込み（キー指定）
+func int ReadInt(string key)
+{
+    int[int] idx(1), val(1);
+    
+    // キーのハッシュ計算
+    int hash = 0;
+    for (int i = 0; i < key.length; i++)
+        hash = (hash * 31 + int(key[i])) % 1000000;
+    
+    idx[0] = hash;
+    
+    int status = readSharedMemoryInt(__SHMSYS_NAME, idx, val, 1);
+    if (status != 0) {
+        cout << "ERROR: Failed to read int value for key " << key << " (hash: " << hash << ")" << endl;
+        return 0;
+    }
+    
+    return val[0];
+}
+
+// 整数値書き込み（キー指定）
+func int WriteInt(string key, int value)
+{
+    int[int] idx(1), val(1);
+    
+    // キーのハッシュ計算
+    int hash = 0;
+    for (int i = 0; i < key.length; i++)
+        hash = (hash * 31 + int(key[i])) % 1000000;
+    
+    idx[0] = hash;
+    val[0] = value;
+    
+    int status = writeSharedMemoryInt(__SHMSYS_NAME, idx, val, 1);
+    if (status != 0) {
+        cout << "ERROR: Failed to write int value for key " << key << " (hash: " << hash << ")" << endl;
+        return status;
+    }
+    
+    return 0;
+}
+
+// 整数値読み込み（インデックス指定）
+func int ReadInt(int index)
+{
+    int[int] idx(1), val(1);
+    idx[0] = index;
+    
+    int status = readSharedMemoryInt(__SHMSYS_NAME, idx, val, 1);
+    if (status != 0) {
+        cout << "ERROR: Failed to read int value at index " << index << endl;
+        return 0;
+    }
+    
+    return val[0];
+}
+
+// 整数値書き込み（インデックス指定）
+func int WriteInt(int index, int value)
+{
+    int[int] idx(1), val(1);
+    idx[0] = index;
+    val[0] = value;
+    
+    int status = writeSharedMemoryInt(__SHMSYS_NAME, idx, val, 1);
+    if (status != 0) {
+        cout << "ERROR: Failed to write int value at index " << index << endl;
+        return status;
+    }
+    
+    return 0;
+}
+
+// 整数配列読み込み
+func int ReadIntArray(int[int] &array, string key, int offset)
+{
+    int n = array.n;
+    int[int] idx(n);
+    
+    // キーのハッシュ計算
+    int hash = 0;
+    for (int i = 0; i < key.length; i++)
+        hash = (hash * 31 + int(key[i])) % 1000000;
+    
+    // インデックス配列の設定
+    for (int i = 0; i < n; i++)
+        idx[i] = hash + offset + i;
+    
+    int status = readSharedMemoryInt(__SHMSYS_NAME, idx, array, n);
+    if (status != 0) {
+        cout << "ERROR: Failed to read int array for key " << key << endl;
+        return status;
+    }
+    
+    return 0;
+}
+
+// 整数配列書き込み
+func int WriteIntArray(int[int] &array, string key, int offset)
+{
+    int n = array.n;
+    int[int] idx(n);
+    
+    // キーのハッシュ計算
+    int hash = 0;
+    for (int i = 0; i < key.length; i++)
+        hash = (hash * 31 + int(key[i])) % 1000000;
+    
+    // インデックス配列の設定
+    for (int i = 0; i < n; i++)
+        idx[i] = hash + offset + i;
+    
+    int status = writeSharedMemoryInt(__SHMSYS_NAME, idx, array, n);
+    if (status != 0) {
+        cout << "ERROR: Failed to write int array for key " << key << endl;
+        return status;
+    }
+    
+    return 0;
+}
+
+// ----- 実数操作 ----- //
+
+// 浮動小数点値読み込み（キー指定）
+func real ReadDouble(string key)
+{
+    int[int] idx(1);
+    real[int] val(1);
+    
+    // キーのハッシュ計算
+    int hash = 0;
+    for (int i = 0; i < key.length; i++)
+        hash = (hash * 31 + int(key[i])) % 1000000;
+    
+    idx[0] = hash;
+    
+    int status = readSharedMemoryDouble(__SHMSYS_NAME, idx, val, 1);
+    if (status != 0) {
+        cout << "ERROR: Failed to read double value for key " << key << " (hash: " << hash << ")" << endl;
+        return 0.0;
+    }
+    
+    return val[0];
+}
+
+// 浮動小数点値書き込み（キー指定）
+func int WriteDouble(string key, real value)
+{
+    int[int] idx(1);
+    real[int] val(1);
+    
+    // キーのハッシュ計算
+    int hash = 0;
+    for (int i = 0; i < key.length; i++)
+        hash = (hash * 31 + int(key[i])) % 1000000;
+    
+    idx[0] = hash;
+    val[0] = value;
+    
+    int status = writeSharedMemoryDouble(__SHMSYS_NAME, idx, val, 1);
+    if (status != 0) {
+        cout << "ERROR: Failed to write double value for key " << key << " (hash: " << hash << ")" << endl;
+        return status;
+    }
+    
+    return 0;
+}
+
+// 浮動小数点値読み込み（インデックス指定）
+func real ReadDouble(int index)
+{
+    int[int] idx(1);
+    real[int] val(1);
+    idx[0] = index;
+    
+    int status = readSharedMemoryDouble(__SHMSYS_NAME, idx, val, 1);
+    if (status != 0) {
+        cout << "ERROR: Failed to read double value at index " << index << endl;
+        return 0.0;
+    }
+    
+    return val[0];
+}
+
+// 浮動小数点値書き込み（インデックス指定）
+func int WriteDouble(int index, real value)
+{
+    int[int] idx(1);
+    real[int] val(1);
+    idx[0] = index;
+    val[0] = value;
+    
+    int status = writeSharedMemoryDouble(__SHMSYS_NAME, idx, val, 1);
+    if (status != 0) {
+        cout << "ERROR: Failed to write double value at index " << index << endl;
+        return status;
+    }
+    
+    return 0;
+}
+
+// 実数配列読み込み
+func int ReadRealArray(real[int] &array, string key, int offset)
+{
+    int n = array.n;
+    int[int] idx(n);
+    
+    // キーのハッシュ計算
+    int hash = 0;
+    for (int i = 0; i < key.length; i++)
+        hash = (hash * 31 + int(key[i])) % 1000000;
+    
+    // インデックス配列の設定
+    for (int i = 0; i < n; i++)
+        idx[i] = hash + offset + i;
+    
+    int status = readSharedMemoryDouble(__SHMSYS_NAME, idx, array, n);
+    if (status != 0) {
+        cout << "ERROR: Failed to read real array for key " << key << endl;
+        return status;
+    }
+    
+    return 0;
+}
+
+// 実数配列書き込み
+func int WriteRealArray(real[int] &array, string key, int offset)
+{
+    int n = array.n;
+    int[int] idx(n);
+    
+    // キーのハッシュ計算
+    int hash = 0;
+    for (int i = 0; i < key.length; i++)
+        hash = (hash * 31 + int(key[i])) % 1000000;
+    
+    // インデックス配列の設定
+    for (int i = 0; i < n; i++)
+        idx[i] = hash + offset + i;
+    
+    int status = writeSharedMemoryDouble(__SHMSYS_NAME, idx, array, n);
+    if (status != 0) {
+        cout << "ERROR: Failed to write real array for key " << key << endl;
+        return status;
+    }
+    
+    return 0;
+} 
