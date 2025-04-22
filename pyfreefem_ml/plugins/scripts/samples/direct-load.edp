@@ -1,0 +1,12 @@
+// Direct load test
+// Use the full path to the plugin
+load "../../freefem_plugins/mmap-semaphore"
+
+// Test shared memory creation
+string memname = "testmem";
+real memid = ShmCreate(memname, 1024);
+cout << "Memory created with ID = " << memid << endl;
+
+// Cleanup
+ShmDestroy(memname);
+cout << "Test completed!" << endl; 

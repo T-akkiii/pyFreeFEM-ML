@@ -1,0 +1,16 @@
+include LICENSE
+include README.md
+include CHANGELOG.md
+include pyproject.toml
+
+recursive-include pyfreefem_ml/pyfreefem_ml *.py
+recursive-include pyfreefem_ml/plugins *.cpp *.h Makefile
+recursive-include pyfreefem_ml/plugins/scripts *.edp *.idp
+recursive-include pyfreefem_ml/tests *.py *.edp
+recursive-include pyfreefem_ml/examples *.py *.edp
+recursive-include pyfreefem_ml/docs *.md *.rst *.png *.jpg
+
+prune */__pycache__
+prune */*/__pycache__
+prune */*/*/__pycache__
+prune docs/_build 

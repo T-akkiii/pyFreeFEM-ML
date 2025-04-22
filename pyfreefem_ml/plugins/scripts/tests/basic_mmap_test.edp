@@ -1,0 +1,24 @@
+// mmap-semaphoreの基本テスト
+cout << "Testing basic mmap-semaphore functionality" << endl;
+
+// プラグインのロード
+load "mmap-semaphore"
+
+// 共有メモリの初期化
+string shmname = "test_shm";
+int shmsize = 1024*1024;
+
+cout << "Creating shared memory: " << shmname << ", size: " << shmsize << endl;
+createSharedMemory(shmname, shmsize);
+
+// 値の設定
+int testint = 42;
+SetInMmap(shm, "testint", testint);
+cout << "Set testint = " << testint << endl;
+
+// 値の取得
+int readint;
+GetFromMmap(shm, "testint", readint);
+cout << "Read testint = " << readint << endl;
+
+cout << "Test completed" << endl; 

@@ -1,0 +1,8 @@
+// mmap-semaphoreのロードテスト
+cout << "Testing mmap-semaphore plugin" << endl;
+
+// プラグインのロード
+load "mmap-semaphore"
+
+// 確認メッセージ
+cout << "Plugin loaded successfully" << endl; 

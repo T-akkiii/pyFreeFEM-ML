@@ -1,0 +1,13 @@
+// 環境変数取得テスト
+cout << "Testing environment variable access" << endl;
+
+// プラグインのロード
+load "mmap-semaphore"
+
+// 環境変数の取得
+string homedir = getenv("HOME");
+cout << "HOME = " << homedir << endl;
+
+// 存在しないかもしれない環境変数
+string testvar = getenv("TESTVAR");
+cout << "TESTVAR = " << testvar << endl; 

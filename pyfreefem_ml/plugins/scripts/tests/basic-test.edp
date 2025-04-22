@@ -1,0 +1,23 @@
+// Basic test for mmap-semaphore plugin
+
+// Load plugin
+load "mmap-semaphore"
+
+// Test variables
+string smname = "testmem";
+int smsize = 1024;
+
+// Plugin test
+cout << "Plugin loaded" << endl;
+
+// Create shared memory
+cout << "Creating shared memory" << endl;
+real id = ShmCreate(smname, smsize);
+
+if (id < 0) {
+    cout << "Creation failed" << endl;
+} else {
+    cout << "Memory created, ID=" << id << endl;
+}
+
+cout << "Test done!" << endl;

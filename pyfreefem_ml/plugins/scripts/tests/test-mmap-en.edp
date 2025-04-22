@@ -1,0 +1,65 @@
+// Test for mmap-semaphore plugin
+
+// Load plugin
+load "mmap-semaphore"  
+
+// Shared memory name and size
+string shm_name = "test_memory";
+int shm_size = 1024;  // 1KB
+
+// Check if plugin is loaded
+cout << "mmap-semaphore plugin successfully loaded" << endl;
+
+// Create shared memory
+cout << "Creating shared memory: " << shm_name << endl;
+real shm_id = ShmCreate(shm_name, shm_size);
+
+if (shm_id < 0) {
+    cout << "Failed to create shared memory" << endl;
+    exit(1);
+}
+
+cout << "Shared memory created. ID: " << shm_id << endl;
+
+// Create test array
+real[int] data(10);
+for (int i = 0; i < 10; i++)
+    data[i] = i * 3.14;
+
+// Create array info
+ArrayInfo info = ArrayInfo(10, 0);
+
+// Write array to shared memory
+cout << "Writing array to shared memory..." << endl;
+real result = ShmWriteArray(shm_name, data, info);
+
+if (result < 0.5) {
+    cout << "Failed to write array" << endl;
+    exit(1);
+}
+
+// Read into another array for verification
+real[int] read_data(10);
+cout << "Reading array from shared memory..." << endl;
+result = ShmReadArray(shm_name, read_data, info);
+
+if (result < 0.5) {
+    cout << "Failed to read array" << endl;
+    exit(1);
+}
+
+// Display the read data
+cout << "Read data:" << endl;
+for (int i = 0; i < 10; i++)
+    cout << "read_data[" << i << "] = " << read_data[i] << endl;
+
+// Destroy shared memory
+cout << "Destroying shared memory..." << endl;
+result = ShmDestroy(shm_name);
+
+if (result < 0.5) {
+    cout << "Failed to destroy shared memory" << endl;
+    exit(1);
+}
+
+cout << "Test completed successfully!" << endl; 

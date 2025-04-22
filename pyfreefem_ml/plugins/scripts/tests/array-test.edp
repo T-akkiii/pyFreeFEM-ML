@@ -1,0 +1,66 @@
+// Array test for mmap-semaphore plugin
+
+// Load plugin
+load "mmap-semaphore"
+
+// Test variables
+string smname = "testmem";
+int smsize = 1024;
+
+// Plugin test
+cout << "Plugin loaded" << endl;
+
+// Create shared memory
+cout << "Creating shared memory" << endl;
+real id = ShmCreate(smname, smsize);
+
+if (id < 0) {
+    cout << "Creation failed" << endl;
+    exit(1);
+}
+
+cout << "Memory created, ID=" << id << endl;
+
+// Test array
+real[int] a(5);
+a[0] = 1.1;
+a[1] = 2.2;
+a[2] = 3.3;
+a[3] = 4.4;
+a[4] = 5.5;
+
+// Get array info
+int arraySize = 5;
+int arrayOffset = 0;
+real info1 = arraySize;
+real info2 = arrayOffset;
+
+// Write array
+cout << "Writing array" << endl;
+real res = ShmWriteArray(smname, a, ArrayInfo(info1, info2));
+
+if (res < 0.5) {
+    cout << "Write failed" << endl;
+    exit(1);
+}
+
+// Read array
+real[int] b(5);
+cout << "Reading array" << endl;
+res = ShmReadArray(smname, b, ArrayInfo(info1, info2));
+
+if (res < 0.5) {
+    cout << "Read failed" << endl;
+    exit(1);
+}
+
+// Display data
+cout << "Read data:" << endl;
+for (int i = 0; i < 5; i++)
+    cout << "b[" << i << "] = " << b[i] << endl;
+
+// Cleanup
+cout << "Cleaning up" << endl;
+res = ShmDestroy(smname);
+
+cout << "Test done!" << endl; 

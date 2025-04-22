@@ -1,0 +1,23 @@
+// Simple array test for mmap-semaphore plugin
+
+// Load plugin
+load "mmap-semaphore"
+
+// Create shared memory
+string mname = "testmem";
+real mid = ShmCreate(mname, 1024);
+cout << "Memory created, ID=" << mid << endl;
+
+// Create test array
+real[int] a(5);
+for (int i = 0; i < 5; i++)
+    a[i] = i * 2.5;
+
+// Call array functions directly
+cout << "Writing array..." << endl;
+real ok = ShmWriteArray(mname, a, ArrayInfo(5, 0));
+cout << "Write result: " << ok << endl;
+
+// Destroy shared memory
+ShmDestroy(mname);
+cout << "Done" << endl; 

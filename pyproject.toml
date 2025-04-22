@@ -1,27 +1,15 @@
 [tool.poetry]
-name = "pj-to-speedup"
+name = "pyfreefem-ml"
 version = "0.1.0"
-description = ""
+description = "Python-FreeFEM共有メモリインターフェース"
 authors = ["T-akkiii <akashi0718@g.ecc.u-tokyo.ac.jp>"]
 readme = "README.md"
+packages = [{include = "pyfreefem_ml", from = "pyfreefem_ml"}]
 
 [tool.poetry.dependencies]
 python = ">=3.12"
-pyfreefem = "^1.1.2"
-torch = "^2.2.0"
-torchsummary = "^1.5.1"
-numpy = {version = "^2.2.0"}
-matplotlib = "^3.10.1"
-ruff = "^0.8.2"
-pyyaml = "^6.0.2"
-torchviz = "^0.0.3"
-schedulefree = "^1.4"
+numpy = "^2.2.0"
 sysv_ipc = "^1.1.0"
-
-[[tool.poetry.source]]
-name = "torch"
-url = "https://download.pytorch.org/whl/cu121"
-priority = "explicit"
 
 [build-system]
 requires = ["setuptools>=42", "wheel"]
@@ -45,7 +33,7 @@ exclude = '''
 '''
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["pyfreefem_ml/tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
 python_classes = "Test*"

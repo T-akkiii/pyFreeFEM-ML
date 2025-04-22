@@ -1,0 +1,90 @@
+// 共有メモリ操作のための簡易実装
+
+// 整数データと実数データの配列
+int[string] intData;
+real[string] realData;
+
+// 整数値設定
+func void setInt(string key, int value) {
+    intData[key] = value;
+    cout << "Set int " << key << " = " << value << endl;
+}
+
+// 整数値取得
+func int getInt(string key) {
+    // keyが存在するか確認
+    bool keyExists = false;
+    for (string k : keys(intData))
+        if (k == key) keyExists = true;
+    
+    if (keyExists) {
+        cout << "Get int " << key << " = " << intData[key] << endl;
+        return intData[key];
+    } else {
+        cout << "Key " << key << " not found in int data" << endl;
+        return 0;
+    }
+}
+
+// 実数値設定
+func void setReal(string key, real value) {
+    realData[key] = value;
+    cout << "Set real " << key << " = " << value << endl;
+}
+
+// 実数値取得
+func real getReal(string key) {
+    // keyが存在するか確認
+    bool keyExists = false;
+    for (string k : keys(realData))
+        if (k == key) keyExists = true;
+    
+    if (keyExists) {
+        cout << "Get real " << key << " = " << realData[key] << endl;
+        return realData[key];
+    } else {
+        cout << "Key " << key << " not found in real data" << endl;
+        return 0.0;
+    }
+}
+
+// 配列要素の操作
+func void setArrayElement(string baseKey, int index, real value) {
+    string key = baseKey + "_" + index;
+    setReal(key, value);
+}
+
+func real getArrayElement(string baseKey, int index) {
+    string key = baseKey + "_" + index;
+    return getReal(key);
+}
+
+// テスト関数
+func void testShmFunctions() {
+    cout << "Testing shared memory functions..." << endl;
+    
+    // 整数値のテスト
+    setInt("test_int", 42);
+    int val = getInt("test_int");
+    assert(val == 42);
+    
+    // 実数値のテスト
+    setReal("test_real", 3.14159);
+    real rval = getReal("test_real");
+    assert(abs(rval - 3.14159) < 1e-5);
+    
+    // 配列要素のテスト
+    setArrayElement("array", 0, 1.0);
+    setArrayElement("array", 1, 2.0);
+    setArrayElement("array", 2, 3.0);
+    
+    assert(abs(getArrayElement("array", 0) - 1.0) < 1e-5);
+    assert(abs(getArrayElement("array", 1) - 2.0) < 1e-5);
+    assert(abs(getArrayElement("array", 2) - 3.0) < 1e-5);
+    
+    cout << "All tests passed!" << endl;
+}
+
+// メイン部分
+cout << "Simple shared memory simulation loaded" << endl;
+testShmFunctions(); 

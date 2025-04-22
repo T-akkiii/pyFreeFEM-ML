@@ -1,0 +1,35 @@
+
+// 共有メモリプラグインをロード
+load "mmap-semaphore"
+
+// 環境変数から共有メモリ情報を取得
+string shm_name = getenv("FF_SHM_NAME");
+int shm_size = atoi(getenv("FF_SHM_SIZE"));
+
+// 共有メモリ初期化
+createSharedMemory(shm_name, shm_size);
+
+// 整数値の読み取り
+int scalar_int;
+GetFromMmap(shm, "scalar_int", scalar_int);
+cout << "整数値を読み込みました: " << scalar_int << endl;
+
+// 浮動小数点の読み取り
+real scalar_double;
+GetFromMmap(shm, "scalar_double", scalar_double);
+cout << "浮動小数点を読み込みました: " << scalar_double << endl;
+
+// 配列データの読み取り（個別の要素として）
+real array_data_0, array_data_1, array_data_2;
+GetFromMmap(shm, "array_data_0", array_data_0);
+GetFromMmap(shm, "array_data_1", array_data_1);
+GetFromMmap(shm, "array_data_2", array_data_2);
+cout << "配列データを読み込みました: [" << array_data_0 << ", " << array_data_1 << ", " << array_data_2 << "]" << endl;
+
+// 何らかの計算を実行
+scalar_int += 100;
+scalar_double = scalar_double * 2;
+
+// 処理結果を書き込み
+SetInMmap(shm, "result_int", scalar_int);
+SetInMmap(shm, "result_double", scalar_double);

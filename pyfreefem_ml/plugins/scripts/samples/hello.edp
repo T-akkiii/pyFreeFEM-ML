@@ -1,0 +1,15 @@
+// Hello world
+cout << "Hello, World!" << endl;
+
+// 変数定義
+int a = 10;
+real b = 3.14;
+cout << "a = " << a << ", b = " << b << endl;
+
+// 配列
+real[int] arr(3);
+arr[0] = 1.0;
+arr[1] = 2.0;
+arr[2] = 3.0;
+
+cout << "arr = [" << arr[0] << ", " << arr[1] << ", " << arr[2] << "]" << endl; 

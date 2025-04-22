@@ -1,0 +1,2 @@
+// Print the FreeFEM plugin load path
+cout << "FF_LOADPATH = " << getenv("FF_LOADPATH") << endl; 

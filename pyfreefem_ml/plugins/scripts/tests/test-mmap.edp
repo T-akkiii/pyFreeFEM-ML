@@ -1,0 +1,67 @@
+// mmap-semaphoreプラグインのテスト
+
+// プラグインをロード
+load "mmap-semaphore"  
+
+// 共有メモリ名とサイズ
+string shm_name = "test_memory";
+int shm_size = 1024;  // 1KB
+
+// プラグインの存在を確認
+cout << "mmap-semaphoreプラグインが正常にロードされました" << endl;
+
+// 共有メモリの作成
+cout << "共有メモリを作成します: " << shm_name << endl;
+real shm_id = ShmCreate(shm_name, shm_size);
+
+if (shm_id < 0) {
+    cout << "共有メモリの作成に失敗しました" << endl;
+    exit(1);
+}
+
+cout << "共有メモリが作成されました。ID: " << shm_id << endl;
+
+// テスト用の配列を作成
+real[int] data(10);
+for (int i = 0; i < 10; i++) {
+    data[i] = i * 3.14;
+}
+
+// 配列情報を作成
+ArrayInfo info = ArrayInfo(10, 0);
+
+// 配列を共有メモリに書き込み
+cout << "配列を共有メモリに書き込みます..." << endl;
+real result = ShmWriteArray(shm_name, data, info);
+
+if (result < 0.5) {
+    cout << "配列の書き込みに失敗しました" << endl;
+    exit(1);
+}
+
+// 確認のために別の配列に読み込み
+real[int] read_data(10);
+cout << "共有メモリから配列を読み込みます..." << endl;
+result = ShmReadArray(shm_name, read_data, info);
+
+if (result < 0.5) {
+    cout << "配列の読み込みに失敗しました" << endl;
+    exit(1);
+}
+
+// 読み込んだデータを表示
+cout << "読み込まれたデータ:" << endl;
+for (int i = 0; i < 10; i++) {
+    cout << "read_data[" << i << "] = " << read_data[i] << endl;
+}
+
+// 共有メモリを破棄
+cout << "共有メモリを破棄します..." << endl;
+result = ShmDestroy(shm_name);
+
+if (result < 0.5) {
+    cout << "共有メモリの破棄に失敗しました" << endl;
+    exit(1);
+}
+
+cout << "テストが正常に完了しました！" << endl; 

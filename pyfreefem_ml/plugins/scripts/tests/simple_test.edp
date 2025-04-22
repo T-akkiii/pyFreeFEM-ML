@@ -1,0 +1,5 @@
+// シンプルなテスト
+cout << "Hello from FreeFEM" << endl;
+
+real a = 3.14;
+cout << "Value of a: " << a << endl; 
