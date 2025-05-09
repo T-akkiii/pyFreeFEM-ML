@@ -1,0 +1,115 @@
+// String handling test for mmap-semaphore plugin
+
+// Load plugin
+load "mmap-semaphore"
+
+// Test variables
+string smname = "test_string_mem";
+int smsize = 2048;  // 大きめのサイズを確保
+
+// Plugin test
+cout << "Plugin loaded" << endl;
+
+// Create shared memory
+cout << "Creating shared memory" << endl;
+real id = ShmCreate(smname, smsize);
+
+if (id < 0) {
+    cout << "Creation failed" << endl;
+    exit(1);
+}
+
+cout << "Memory created, ID=" << id << endl;
+
+// テスト用文字列
+string testStr = "これはFreeFEMから共有メモリに書き込むテスト文字列です。";
+int strOffset = 64;  // 文字列格納開始位置
+
+// 文字列長の計算と格納
+int strLen = testStr.length;
+cout << "Writing string length: " << strLen << endl;
+
+// 文字列長を共有メモリの先頭に書き込み
+real res = ShmWriteInt(smname, 0, strLen);
+if (res < 0.5) {
+    cout << "String length write failed" << endl;
+    exit(1);
+}
+
+// 文字列を共有メモリに書き込み
+cout << "Writing string: " << testStr << endl;
+res = ShmWriteString(smname, strOffset, testStr);
+if (res < 0.5) {
+    cout << "String write failed" << endl;
+    exit(1);
+}
+
+// 文字列長を読み出し
+int readLen;
+res = ShmReadInt(smname, 0, readLen);
+if (res < 0.5) {
+    cout << "String length read failed" << endl;
+    exit(1);
+}
+cout << "Read string length: " << readLen << endl;
+
+// 文字列を読み出し
+string readStr;
+res = ShmReadString(smname, strOffset, readStr, readLen);
+if (res < 0.5) {
+    cout << "String read failed" << endl;
+    exit(1);
+}
+cout << "Read string: " << readStr << endl;
+
+// 別の文字列で追加テスト (ASCII文字のみ)
+string testStr2 = "This is a test string with ASCII characters only.";
+int strOffset2 = 512;  // 別の位置に格納
+
+// 文字列長を共有メモリの別の位置に書き込み
+int strLen2 = testStr2.length;
+cout << "Writing second string length: " << strLen2 << endl;
+res = ShmWriteInt(smname, 4, strLen2);
+if (res < 0.5) {
+    cout << "Second string length write failed" << endl;
+    exit(1);
+}
+
+// 2つ目の文字列を共有メモリに書き込み
+cout << "Writing second string: " << testStr2 << endl;
+res = ShmWriteString(smname, strOffset2, testStr2);
+if (res < 0.5) {
+    cout << "Second string write failed" << endl;
+    exit(1);
+}
+
+// 2つ目の文字列長を読み出し
+int readLen2;
+res = ShmReadInt(smname, 4, readLen2);
+if (res < 0.5) {
+    cout << "Second string length read failed" << endl;
+    exit(1);
+}
+cout << "Read second string length: " << readLen2 << endl;
+
+// 2つ目の文字列を読み出し
+string readStr2;
+res = ShmReadString(smname, strOffset2, readStr2, readLen2);
+if (res < 0.5) {
+    cout << "Second string read failed" << endl;
+    exit(1);
+}
+cout << "Read second string: " << readStr2 << endl;
+
+// 文字列が同じかチェック
+if (testStr == readStr && testStr2 == readStr2) {
+    cout << "String tests passed!" << endl;
+} else {
+    cout << "String tests failed!" << endl;
+}
+
+// Cleanup
+cout << "Cleaning up" << endl;
+res = ShmDestroy(smname);
+
+cout << "Test done!" << endl; 
