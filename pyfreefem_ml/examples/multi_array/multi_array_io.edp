@@ -1,0 +1,82 @@
+// FreeFEMスクリプト - 多次元配列のファイル入出力テスト
+// このスクリプトは多次元配列を適切なフォーマットでファイルに出力します
+
+// ファイルパスは外部から設定される、もしくはデフォルト値を使用
+string outputFile = "multi_array_output.txt";
+string metadataFile = "multi_array_metadata.txt"; // 配列のサイズ情報を保存
+
+cout << "======= Starting FreeFEM Multi-Dimensional Array I/O Test =======" << endl;
+
+// 単位正方形上のメッシュ
+int nx = 5; // x方向メッシュサイズ
+int ny = 4; // y方向メッシュサイズ
+mesh Th = square(nx, ny);
+
+// 関数空間
+fespace Vh(Th, P1);
+Vh u, v;
+
+// いくつかのテスト関数を定義（多次元データを生成）
+// 2次元の配列を表現するP1要素の関数
+func f1 = x*y; // x*y
+func f2 = sin(2*pi*x)*sin(2*pi*y); // 三角関数
+func f3 = exp(-10*((x-0.5)^2+(y-0.5)^2)); // ガウス関数
+
+// 複数の解を計算
+Vh u1 = f1;
+Vh u2 = f2;
+Vh u3 = f3;
+
+// 結果をファイルに書き出し
+ofstream out(outputFile);
+ofstream meta(metadataFile);
+out.precision(15); // 高精度で出力
+
+// メタデータを書き込む（配列の次元とサイズ）
+int nfunctions = 3; // 3つの関数の結果を保存
+int npoints = u1[].n; // 各関数の点の数
+meta << nfunctions << " " << npoints << endl;
+meta << nx+1 << " " << ny+1 << endl; // メッシュの次元 (頂点数はn+1)
+
+cout << "Writing " << nfunctions << " arrays with " << npoints << " points each" << endl;
+cout << "Grid dimensions: " << nx+1 << "x" << ny+1 << endl;
+
+// 多次元データの書き込み方法1: 1つの配列として連続して書き込む
+// 形式: [関数1の全要素][関数2の全要素]...[関数nの全要素]
+for (int f = 0; f < nfunctions; f++) {
+    Vh currentU;
+    if (f == 0) currentU = u1;
+    else if (f == 1) currentU = u2;
+    else currentU = u3;
+    
+    for (int i = 0; i < currentU[].n; i++) {
+        out << currentU[][i] << endl;
+    }
+}
+
+// 多次元データの書き込み方法2: 別ファイルに構造化して書き込む
+// この例ではコメントアウト
+/*
+ofstream out2("structured_output.txt");
+out2.precision(15);
+
+// メッシュの各点の座標と値を構造化して保存
+for (int i = 0; i < Th.nv; i++) {
+    // 点の座標
+    out2 << Th(i).x << " " << Th(i).y << " ";
+    // 各関数の値
+    out2 << u1[][i] << " " << u2[][i] << " " << u3[][i] << endl;
+}
+*/
+
+cout << "Results written to files:" << endl;
+cout << "- Data: " << outputFile << endl;
+cout << "- Metadata: " << metadataFile << endl;
+cout << "Number of output values per function: " << npoints << endl;
+
+// メッシュと解をプロットする（必要に応じて）
+plot(Th, u1, wait=0, value=1, fill=1, cmm="Function 1: x*y");
+plot(Th, u2, wait=0, value=1, fill=1, cmm="Function 2: sin(2πx)sin(2πy)");
+plot(Th, u3, wait=0, value=1, fill=1, cmm="Function 3: exp(-10((x-0.5)²+(y-0.5)²))");
+
+cout << "======= FreeFEM Multi-Dimensional Array I/O Test Completed =======" << endl; 
