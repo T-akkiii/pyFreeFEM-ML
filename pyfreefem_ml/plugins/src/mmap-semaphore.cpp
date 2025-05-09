@@ -232,6 +232,22 @@ double shm_read_array(string* const& name, double* const& data, ArrayInfo* const
     return result ? 1.0 : 0.0;
 }
 
+// int配列の書き込み - 3引数バージョン
+double shm_write_int_array(string* const& name, long* const& data, ArrayInfo* const& info) {
+    size_t size = static_cast<size_t>(info->size) * sizeof(long);
+    bool result = SharedMemoryManager::write(*name, data, size, static_cast<size_t>(info->offset));
+    cout << "Writing int array: " << size << " bytes, " << info->size << " elements to " << *name << endl;
+    return result ? 1.0 : 0.0;
+}
+
+// int配列の読み込み - 3引数バージョン
+double shm_read_int_array(string* const& name, long* const& data, ArrayInfo* const& info) {
+    size_t size = static_cast<size_t>(info->size) * sizeof(long);
+    bool result = SharedMemoryManager::read(*name, data, size, static_cast<size_t>(info->offset));
+    cout << "Reading int array: " << size << " bytes, " << info->size << " elements from " << *name << endl;
+    return result ? 1.0 : 0.0;
+}
+
 // ArrayInfo構造体を作成する関数
 ArrayInfo* create_array_info(const double& size, const double& offset) {
     return new ArrayInfo(size, offset);
@@ -254,6 +270,10 @@ public:
         // FreeFEM 4.10では、OneOperator3_は<R,A,B,C>の形式で使用する
         Global.Add("ShmWriteArray", "(", new OneOperator3_<double, string*, double*, ArrayInfo*>(shm_write_array));
         Global.Add("ShmReadArray", "(", new OneOperator3_<double, string*, double*, ArrayInfo*>(shm_read_array));
+
+        // 整数配列の読み書き
+        Global.Add("ShmWriteIntArray", "(", new OneOperator3_<double, string*, long*, ArrayInfo*>(shm_write_int_array));
+        Global.Add("ShmReadIntArray", "(", new OneOperator3_<double, string*, long*, ArrayInfo*>(shm_read_int_array));
     }
     
     ~Init() {
