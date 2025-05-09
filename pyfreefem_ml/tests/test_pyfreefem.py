@@ -10,20 +10,17 @@ import os
 import sys
 import time
 import numpy as np
+import unittest
 import logging
 from pathlib import Path
 
-# カレントディレクトリをスクリプトの位置に設定
-script_dir = Path(__file__).parent.absolute()
-os.chdir(script_dir)
-
-# プロジェクトルートを取得してパスに追加
-project_root = script_dir.parent.parent.parent
+# プロジェクトルートをパスに追加して、モジュールをインポートできるようにする
+project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 # PyFreeFEMライブラリをインポート
-from src.pyfreefem.freefem_interface import FreeFEMInterface
-from src.pyfreefem.errors import SharedMemoryError, FreeFEMExecutionError, DataTypeError
+from pyfreefem_ml.freefem_interface import FreeFEMInterface
+from pyfreefem_ml.errors import FreeFEMBaseError
 
 # ロガーの設定
 logging.basicConfig(
@@ -31,170 +28,153 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler('test_pyfreefem_python.log')
+        logging.FileHandler('test_pyfreefem.log')
     ]
 )
 logger = logging.getLogger(__name__)
 
-def test_pyfreefem():
-    """PyFreeFEMライブラリの基本機能をテストする関数"""
-    logger.info("PyFreeFEMテスト開始")
+class TestPyFreeFEM(unittest.TestCase):
+    """PyFreeFEMライブラリのテストケース"""
     
-    try:
-        # FreeFEMインターフェースの作成
-        # 共有メモリのサイズを1MBに設定
-        pyff = FreeFEMInterface(shm_name="pyfreefem_shm", shm_size=1024*1024)
-        logger.info("FreeFEMインターフェースインスタンスを作成しました")
-        
-        # 基本データ型の書き込みテスト
-        # ------------------
-        logger.info("データ書き込みテスト開始")
-        
-        # 整数値のテスト
-        test_int = 42
-        pyff.set_data("test_int", test_int)
-        logger.info(f"整数値を書き込みました: test_int = {test_int}")
-        
-        # 浮動小数点値のテスト
-        test_double = 3.14159
-        pyff.set_data("test_double", test_double)
-        logger.info(f"浮動小数点値を書き込みました: test_double = {test_double}")
-        
-        # 文字列のテスト
-        test_string = "こんにちは、PyFreeFEM!"
-        pyff.set_data("test_string", test_string)
-        logger.info(f"文字列を書き込みました: test_string = {test_string}")
-        
-        # 配列のテスト
-        test_array = np.array([1.1, 2.2, 3.3, 4.4, 5.5], dtype=np.float64)
-        pyff.set_data("test_array", test_array)
-        logger.info(f"配列を書き込みました: test_array = {test_array}")
-        
-        # FreeFEMスクリプトの実行
-        # ------------------
-        logger.info("FreeFEMスクリプト実行テスト開始")
-        
-        # テスト用FreeFEMスクリプトのパス
-        freefem_script = os.path.join(project_root, "src", "pyfreefem", "freefem", "test_pyfreefem.edp")
-        
-        # スクリプトを実行
-        result = pyff.run_script(freefem_script)
-        logger.info(f"FreeFEMスクリプトの実行結果: {'成功' if result.success else '失敗'}")
-        
-        if result.output:
-            logger.info(f"出力:\n{result.output}")
-        
-        # FreeFEMから処理結果を読み込む
-        # ------------------
-        logger.info("処理結果読み込みテスト開始")
-        
-        # テストが完了したかチェック
-        max_wait = 30  # 最大待機時間（秒）
-        start_time = time.time()
-        test_completed = 0
-        
-        while test_completed == 0 and (time.time() - start_time) < max_wait:
-            try:
-                test_completed = pyff.get_data("test_completed")
-                if test_completed == 0:
-                    logger.info("FreeFEMの処理が完了するのを待っています...")
-                    time.sleep(1)
-            except Exception as e:
-                logger.warning(f"テスト完了フラグの読み込み中にエラーが発生しました: {e}")
-                time.sleep(1)
-        
-        if test_completed != 1:
-            logger.error(f"FreeFEMの処理がタイムアウトまたはエラーが発生しました")
-            return False
-        
-        # 処理結果を読み込む
-        result_int = pyff.get_data("result_int")
-        logger.info(f"整数値の処理結果: result_int = {result_int}")
-        
-        result_double = pyff.get_data("result_double")
-        logger.info(f"浮動小数点値の処理結果: result_double = {result_double}")
-        
-        result_string = pyff.get_data("result_string")
-        logger.info(f"文字列の処理結果: result_string = {result_string}")
-        
-        # 配列の処理結果を読み込む
-        result_array = pyff.get_data("result_array")
-        logger.info(f"配列の処理結果: result_array = {result_array}")
-        
-        # 結果の検証
-        # ------------------
-        logger.info("処理結果の検証開始")
-        
-        # 期待される値との比較
-        expected_int = test_int + 10
-        expected_double = test_double * 2.0
-        expected_string = test_string + " [処理済]"
-        expected_array = test_array + 5.0
-        
-        success = True
-        
-        if result_int != expected_int:
-            logger.error(f"整数値の検証エラー: 期待={expected_int}, 実際={result_int}")
-            success = False
-        
-        if abs(result_double - expected_double) > 1e-10:
-            logger.error(f"浮動小数点値の検証エラー: 期待={expected_double}, 実際={result_double}")
-            success = False
-        
-        if result_string != expected_string:
-            logger.error(f"文字列の検証エラー: 期待={expected_string}, 実際={result_string}")
-            success = False
-        
-        if not np.allclose(result_array, expected_array):
-            logger.error(f"配列の検証エラー: 期待={expected_array}, 実際={result_array}")
-            success = False
-        
-        if success:
-            logger.info("テスト結果: 成功 - すべての検証が正常に完了しました")
-        else:
-            logger.error("テスト結果: 失敗 - 一部の検証に失敗しました")
-        
-        # 結果のサマリーをファイルに書き込む
-        with open("test_pyfreefem_result.txt", "w", encoding="utf-8") as f:
-            f.write("PyFreeFEMテスト結果サマリー\n")
-            f.write("======================\n\n")
-            f.write(f"テスト結果: {'成功' if success else '失敗'}\n\n")
-            
-            f.write("入力値:\n")
-            f.write(f"  整数値: {test_int}\n")
-            f.write(f"  浮動小数点値: {test_double}\n")
-            f.write(f"  文字列: {test_string}\n")
-            f.write(f"  配列: {test_array}\n\n")
-            
-            f.write("処理結果:\n")
-            f.write(f"  整数値: {result_int}\n")
-            f.write(f"  浮動小数点値: {result_double}\n")
-            f.write(f"  文字列: {result_string}\n")
-            f.write(f"  配列: {result_array}\n")
-        
-        # クリーンアップ
-        pyff.cleanup()
-        logger.info("リソースをクリーンアップしました")
-        
-        return success
+    def setUp(self):
+        """テスト前の準備"""
+        self.debug = True
+        logger.info("テスト開始")
     
-    except SharedMemoryError as e:
-        logger.error(f"共有メモリエラー: {e}")
-        return False
-    except FreeFEMExecutionError as e:
-        logger.error(f"FreeFEM実行エラー: {e}")
-        return False
-    except DataTypeError as e:
-        logger.error(f"データ型エラー: {e}")
-        return False
-    except Exception as e:
-        logger.error(f"予期しないエラー: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
-        return False
-    finally:
-        logger.info("PyFreeFEMテスト終了")
+    def tearDown(self):
+        """テスト後のクリーンアップ"""
+        logger.info("テスト終了")
+    
+    def test_basic_data_types(self):
+        """基本データ型の読み書きをテスト"""
+        ff = FreeFEMInterface(debug=self.debug)
+        
+        # 整数値の書き込みと読み込み
+        ff.write_int(42, "test_int")
+        int_value = ff.read_int("test_int")
+        self.assertEqual(int_value, 42)
+        
+        # 浮動小数点値の書き込みと読み込み
+        ff.write_double(3.14159, "test_double")
+        double_value = ff.read_double("test_double")
+        self.assertAlmostEqual(double_value, 3.14159)
+        
+        # 文字列の書き込みと読み込み
+        ff.write_string("Hello PyFreeFEM", "test_string")
+        string_value = ff.read_string("test_string")
+        self.assertEqual(string_value, "Hello PyFreeFEM")
+        
+        # リソースの解放
+        ff.cleanup()
+    
+    def test_double_array_read_write(self):
+        """double配列の書き込みと読み込みをテスト"""
+        ff = FreeFEMInterface(debug=self.debug)
+        
+        # テスト用配列
+        array = np.array([1.0, 2.5, 3.14, -5.0, 0.0], dtype=np.float64)
+        
+        # 配列を共有メモリに書き込み
+        ff.write_array(array, "test_double_array")
+        
+        # FreeFEMスクリプトで読み込みと書き込みを実行
+        result = ff.run_inline_script("""
+            load "mmap-semaphore"
+            real[int] arr(5);
+            
+            // 共有メモリから配列を読み込み
+            ShmReadArray("test_double_array", arr, ArrayInfo(5, 0));
+            
+            // 各要素を2倍して書き込み
+            for (int i = 0; i < 5; i++)
+                arr[i] = arr[i] * 2;
+            
+            // 結果を共有メモリに書き込み
+            ShmWriteArray("result_double_array", arr, ArrayInfo(5, 0));
+        """)
+        
+        # 結果の確認
+        self.assertTrue(result[0], f"スクリプト実行エラー: {result[2]}")
+        
+        # 共有メモリから結果を読み込み
+        result_array = ff.read_array("result_double_array")
+        
+        # 期待される結果と比較
+        expected = array * 2
+        np.testing.assert_allclose(result_array, expected, rtol=1e-5)
+        
+        # リソースの解放
+        ff.cleanup()
+    
+    def test_int_array_read_write(self):
+        """int配列の書き込みと読み込みをテスト"""
+        ff = FreeFEMInterface(debug=self.debug)
+        
+        # テスト用整数配列
+        int_array = np.array([1, 2, 3, 4, 5], dtype=np.int32)
+        
+        # 整数配列を共有メモリに書き込み
+        ff.write_int_array(int_array, "test_int_array")
+        
+        # FreeFEMスクリプトで読み込みと書き込みを実行
+        result = ff.run_inline_script("""
+            load "mmap-semaphore"
+            int[int] arr(5);
+            
+            // 共有メモリから整数配列を読み込み
+            ShmReadIntArray("test_int_array", arr, ArrayInfo(5, 0));
+            
+            // 各要素に10を加算して書き込み
+            for (int i = 0; i < 5; i++)
+                arr[i] = arr[i] + 10;
+            
+            // 結果を共有メモリに書き込み
+            ShmWriteIntArray("result_int_array", arr, ArrayInfo(5, 0));
+        """)
+        
+        # 結果の確認
+        self.assertTrue(result[0], f"スクリプト実行エラー: {result[2]}")
+        
+        # 共有メモリから結果を読み込み
+        result_array = ff.read_int_array("result_int_array")
+        
+        # 期待される結果と比較
+        expected = int_array + 10
+        np.testing.assert_array_equal(result_array, expected)
+        
+        # リソースの解放
+        ff.cleanup()
+    
+    def test_mixed_array_types(self):
+        """異なる型の配列の相互変換をテスト"""
+        ff = FreeFEMInterface(debug=self.debug)
+        
+        # 浮動小数点配列をint配列として書き込み
+        float_array = np.array([1.5, 2.7, 3.2, 4.9, 5.1])
+        ff.write_int_array(float_array, "mixed_array_float_to_int")
+        
+        # 整数配列を浮動小数点配列として読み込み
+        int_array = np.array([10, 20, 30, 40, 50], dtype=np.int32)
+        ff.write_int_array(int_array, "mixed_array_int")
+        result_float = ff.read_array("mixed_array_int")
+        
+        # 結果の確認
+        expected_int = np.array([1, 2, 3, 4, 5], dtype=np.int32)  # 小数点以下は切り捨て
+        result_int = ff.read_int_array("mixed_array_float_to_int")
+        np.testing.assert_array_equal(result_int, expected_int)
+        
+        expected_float = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
+        np.testing.assert_allclose(result_float, expected_float)
+        
+        # リソースの解放
+        ff.cleanup()
+
+def run_tests():
+    """テストスイートを実行"""
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestPyFreeFEM)
+    result = unittest.TextTestRunner(verbosity=2).run(suite)
+    return result.wasSuccessful()
 
 if __name__ == "__main__":
-    success = test_pyfreefem()
+    success = run_tests()
     sys.exit(0 if success else 1) 
