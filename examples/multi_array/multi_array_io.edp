@@ -1,0 +1,36 @@
+
+// Multi-dimensional array test FreeFEM script
+// Input: Flattened 2x3 matrix
+// Output: Input array elements multiplied by 2
+
+// Matrix size definition
+int ny = 2;
+int nx = 3;
+int npoints = ny*nx;
+
+// Read input data
+real[int] inputArray(npoints);
+{
+    ifstream inputFile("input.txt");
+    for(int i = 0; i < npoints; i++)
+        inputFile >> inputArray[i];
+}
+
+// Create output array and compute
+real[int] outputArray(npoints);
+for(int i = 0; i < npoints; i++)
+    outputArray[i] = inputArray[i] * 2.0;
+
+// Output metadata file (matrix shape information)
+{
+    ofstream metaFile("matrix_metadata.txt");
+    metaFile << 1 << " " << npoints << endl;  // One function, number of data points
+    metaFile << nx << " " << ny << endl;      // Matrix size
+}
+
+// Save output data
+{
+    ofstream outputFile("output.txt");
+    for(int i = 0; i < npoints; i++)
+        outputFile << outputArray[i] << " ";
+}
