@@ -1,0 +1,81 @@
+// Int array test for mmap-semaphore plugin
+
+// Load plugin
+load "mmap-semaphore"
+
+// Test variables
+string smname = "test_int_mem";
+int smsize = 1024;
+
+// Plugin test
+cout << "Plugin loaded" << endl;
+
+// Create shared memory
+cout << "Creating shared memory" << endl;
+real id = ShmCreate(smname, smsize);
+
+if (id < 0) {
+    cout << "Creation failed" << endl;
+    exit(1);
+}
+
+cout << "Memory created, ID=" << id << endl;
+
+// Test integer array
+int[int] a(5);
+a[0] = 10;
+a[1] = 20;
+a[2] = 30;
+a[3] = 40;
+a[4] = 50;
+
+// Get array info
+int arraySize = 5;
+int arrayOffset = 0;
+real info1 = arraySize;
+real info2 = arrayOffset;
+
+// Write integer array
+cout << "Writing integer array" << endl;
+real res = ShmWriteIntArray(smname, a, ArrayInfo(info1, info2));
+
+if (res < 0.5) {
+    cout << "Write failed" << endl;
+    exit(1);
+}
+
+// Read integer array
+int[int] b(5);
+cout << "Reading integer array" << endl;
+res = ShmReadIntArray(smname, b, ArrayInfo(info1, info2));
+
+if (res < 0.5) {
+    cout << "Read failed" << endl;
+    exit(1);
+}
+
+// Display data
+cout << "Read data:" << endl;
+for (int i = 0; i < 5; i++)
+    cout << "b[" << i << "] = " << b[i] << endl;
+
+// Read as real array (cross-type test)
+real[int] c(5);
+cout << "Reading as real array" << endl;
+res = ShmReadArray(smname, c, ArrayInfo(info1, info2));
+
+if (res < 0.5) {
+    cout << "Cross-type read failed" << endl;
+    exit(1);
+}
+
+// Display cross-type data
+cout << "Cross-type read data:" << endl;
+for (int i = 0; i < 5; i++)
+    cout << "c[" << i << "] = " << c[i] << endl;
+
+// Cleanup
+cout << "Cleaning up" << endl;
+res = ShmDestroy(smname);
+
+cout << "Test done!" << endl; 
