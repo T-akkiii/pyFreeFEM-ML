@@ -1,0 +1,143 @@
+// WSL path conversion test for mmap-semaphore plugin
+
+// Load plugin
+load "mmap-semaphore"
+
+// 環境情報の出力
+cout << "WSL環境とパス変換のテスト" << endl;
+cout << "FreeFEM環境情報:" << endl;
+
+// システム情報
+int isWSL = 0;
+string osName = "";
+
+// WSLのチェック
+try {
+    ifstream fsysname("/proc/sys/kernel/osrelease");
+    if (fsysname) {
+        string osrelease;
+        fsysname >> osrelease;
+        if (osrelease.find("microsoft") >= 0 || osrelease.find("WSL") >= 0) {
+            isWSL = 1;
+            osName = "WSL";
+        } else {
+            osName = "Linux (non-WSL)";
+        }
+        fsysname.close();
+    } else {
+        osName = "Unknown (couldn't read osrelease)";
+    }
+} catch(...) {
+    osName = "Exception during WSL check";
+}
+
+cout << "OS: " << osName << endl;
+cout << "Is WSL: " << isWSL << endl;
+
+// 各種パスの出力
+string currentDir = "";
+try {
+    // カレントディレクトリを取得
+    currentDir = system("pwd");
+    currentDir = currentDir(0:currentDir.length-1); // 改行を削除
+    cout << "Current directory: " << currentDir << endl;
+} catch(...) {
+    cout << "Error getting current directory" << endl;
+}
+
+// パス変換のテスト（WSL環境の場合）
+if (isWSL) {
+    cout << "WSL path conversion tests:" << endl;
+    
+    // テストパスの配列
+    string[int] testPaths(5);
+    testPaths[0] = "/mnt/c/Users/user/Documents";
+    testPaths[1] = "/home/user/data";
+    testPaths[2] = currentDir;
+    testPaths[3] = "/mnt/c/Program Files/FreeFEM";
+    testPaths[4] = "/mnt/d/Projects/FreeFEM-ML";
+    
+    // 各パスの情報出力
+    for (int i = 0; i < 5; i++) {
+        cout << "----------------------------------------" << endl;
+        cout << "Test path " << (i+1) << ": " << testPaths[i] << endl;
+        
+        // WSLパスからWindowsパスへの変換（シミュレーション）
+        string winPath = "";
+        if (testPaths[i].find("/mnt/") == 0) {
+            // /mnt/X/... を X:\... に変換
+            string driveLetter = testPaths[i].substr(5, 1);
+            string remainingPath = testPaths[i].substr(6);
+            winPath = driveLetter + ":" + remainingPath;
+            // スラッシュをバックスラッシュに変換
+            for (int j = 0; j < winPath.length; j++) {
+                if (winPath.substr(j, 1) == "/") {
+                    winPath = winPath.substr(0, j) + "\\" + winPath.substr(j+1);
+                }
+            }
+        } else {
+            winPath = "Not a Windows accessible path";
+        }
+        
+        cout << "Windows equivalent path: " << winPath << endl;
+        
+        // ファイルアクセスのシミュレーション
+        try {
+            // このパスにファイルがあるか確認（実際のパス変換の代わり）
+            string checkCmd = "ls -la " + testPaths[i] + " 2>/dev/null";
+            string result = system(checkCmd);
+            if (result.length > 0) {
+                cout << "Path exists and is accessible" << endl;
+            } else {
+                cout << "Path does not exist or is not accessible" << endl;
+            }
+        } catch(...) {
+            cout << "Error checking path accessibility" << endl;
+        }
+    }
+} else {
+    cout << "Not running in WSL environment, skipping path conversion tests" << endl;
+}
+
+// プラグインの動作テスト
+cout << "----------------------------------------" << endl;
+cout << "Testing plugin functionality in current environment" << endl;
+
+// 共有メモリの作成と基本操作
+string smname = "wsl_test_mem";
+int smsize = 1024;
+
+try {
+    // 共有メモリ作成
+    real id = ShmCreate(smname, smsize);
+    if (id < 0) {
+        cout << "Failed to create shared memory in " << osName << " environment" << endl;
+    } else {
+        cout << "Successfully created shared memory in " << osName << " environment" << endl;
+        
+        // 値の書き込みテスト
+        real testValue = 123.456;
+        real res = ShmWriteDouble(smname, 0, testValue);
+        if (res < 0) {
+            cout << "Failed to write value to shared memory" << endl;
+        } else {
+            // 値の読み込みテスト
+            real readValue;
+            res = ShmReadDouble(smname, 0, readValue);
+            if (res < 0) {
+                cout << "Failed to read value from shared memory" << endl;
+            } else if (abs(readValue - testValue) < 1e-10) {
+                cout << "Successfully read and wrote values in shared memory" << endl;
+            } else {
+                cout << "Read incorrect value from shared memory: " << readValue << endl;
+            }
+        }
+        
+        // クリーンアップ
+        ShmDestroy(smname);
+    }
+} catch(...) {
+    cout << "Exception during shared memory operations" << endl;
+}
+
+cout << "WSL environment and path conversion test completed" << endl; 
