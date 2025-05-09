@@ -1,0 +1,50 @@
+// テスト用のFreeFEMスクリプト - ファイル入出力バージョン
+// このスクリプトは、共有メモリを使わずにファイル入出力でデータをやり取りします
+
+// ファイルパスは外部から設定される、もしくはデフォルト値を使用
+string inputFile = "input.txt";  // 入力ファイル
+string outputFile = "output.txt"; // 出力ファイル
+
+cout << "======= Starting FreeFEM script execution (File I/O) =======" << endl;
+
+// 単位正方形上のメッシュ
+int n = 10; // メッシュサイズ
+mesh Th = square(n, n);
+
+// 関数空間
+fespace Vh(Th, P1);
+Vh u, v;
+
+// 右辺関数
+func f = 1;
+
+// ポアソン方程式を定義
+problem Poisson(u, v) = 
+    int2d(Th)(
+        dx(u)*dx(v) + dy(u)*dy(v)
+    )
+    - int2d(Th)(
+        f*v
+    )
+    + on(1, 2, 3, 4, u=0) // ディリクレ境界条件
+;
+
+// 方程式を解く
+Poisson;
+
+// 結果をファイルに書き出し
+ofstream out(outputFile);
+out.precision(15); // 高精度で出力
+
+// 解の値をファイルに書き込む
+for (int i = 0; i < u[].n; i++) {
+    out << u[][i] << endl;
+}
+
+cout << "Results written to file: " << outputFile << endl;
+cout << "Number of output values: " << u[].n << endl;
+
+// メッシュと解をプロットする（必要に応じて）
+// plot(Th, u, wait=0, value=1, fill=1);
+
+cout << "======= FreeFEM script execution (File I/O) completed =======" << endl; 
