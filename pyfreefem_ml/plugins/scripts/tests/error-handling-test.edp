@@ -1,0 +1,152 @@
+// Error handling test for mmap-semaphore plugin
+
+// Load plugin
+load "mmap-semaphore"
+
+// タイムアウトと例外処理のテスト
+cout << "Error handling and timeout test for mmap-semaphore plugin" << endl;
+
+// エラー件数カウンター
+int errors = 0;
+int tests = 0;
+
+// テスト関数
+func void testCase(string testName) {
+    cout << "----------------------------------------" << endl;
+    cout << "Test: " << testName << endl;
+    tests++;
+}
+
+// エラーハンドリング関数
+func void handleError(string message) {
+    cout << "ERROR: " << message << endl;
+    errors++;
+}
+
+try {
+    // テスト1: 無効なメモリ名でのアクセス
+    testCase("Invalid memory name access");
+    real res = ShmReadInt("non_existent_memory", 0, 0);
+    if (res < 0) {
+        cout << "Expected error detected: " << res << endl;
+    } else {
+        handleError("Non-existent memory should return error");
+    }
+
+    // テスト2: メモリ作成後の重複作成
+    testCase("Duplicate memory creation");
+    string smname = "test_error_mem";
+    int smsize = 1024;
+    
+    // 最初の作成は成功するはず
+    real id = ShmCreate(smname, smsize);
+    if (id < 0) {
+        handleError("First creation should succeed but failed");
+    } else {
+        cout << "First creation succeeded with ID: " << id << endl;
+        
+        // 同じ名前での2回目の作成（既存のメモリに接続するはず）
+        real id2 = ShmCreate(smname, smsize);
+        if (id2 < 0) {
+            handleError("Second creation should connect to existing memory but failed");
+        } else if (id != id2) {
+            handleError("Second creation should return same ID");
+            cout << "First ID: " << id << ", Second ID: " << id2 << endl;
+        } else {
+            cout << "Second creation correctly connected to existing memory" << endl;
+        }
+    }
+
+    // テスト3: 境界外アクセス
+    testCase("Out-of-bounds access");
+    // 範囲外の位置に書き込み
+    int outOfBoundsOffset = smsize + 100;
+    res = ShmWriteInt(smname, outOfBoundsOffset, 123);
+    if (res < 0) {
+        cout << "Expected error detected on out-of-bounds write: " << res << endl;
+    } else {
+        handleError("Out-of-bounds write should return error");
+    }
+
+    // テスト4: メモリサイズの制約
+    testCase("Memory size constraints");
+    // 非常に大きなサイズでのメモリ作成
+    string bigmem = "big_test_mem";
+    int bigsize = 1024 * 1024 * 1024; // 1GB (通常は失敗するか成功するか環境依存)
+    real bigid = ShmCreate(bigmem, bigsize);
+    if (bigid < 0) {
+        cout << "Creating very large memory failed as expected: " << bigid << endl;
+    } else {
+        cout << "Large memory creation succeeded (system dependent)" << endl;
+        // 成功したらクリーンアップ
+        ShmDestroy(bigmem);
+    }
+
+    // テスト5: データ型の不一致
+    testCase("Data type mismatch");
+    // 整数配列をreal配列として書き込み、読み込み
+    int[int] intArray(3);
+    for (int i = 0; i < 3; i++) intArray[i] = i + 1;
+    
+    // 整数配列をreal配列として書き込み
+    res = ShmWriteArray(smname, intArray, ArrayInfo(3, 100));
+    if (res < 0) {
+        handleError("Writing int array as real array should work but failed");
+    } else {
+        cout << "Int array written as real array successfully" << endl;
+        
+        // 書き込んだデータを整数配列として読み込み
+        int[int] readIntArray(3);
+        res = ShmReadIntArray(smname, readIntArray, ArrayInfo(3, 100));
+        if (res < 0) {
+            handleError("Reading real array as int array should work but failed");
+        } else {
+            cout << "Data read as int array successfully" << endl;
+            // 値の確認
+            bool valuesOK = true;
+            for (int i = 0; i < 3; i++) {
+                if (readIntArray[i] != intArray[i]) {
+                    valuesOK = false;
+                    cout << "Value mismatch at index " << i << ": expected " << intArray[i] 
+                         << ", got " << readIntArray[i] << endl;
+                }
+            }
+            if (valuesOK) cout << "All values match correctly" << endl;
+            else handleError("Values don't match after type conversion");
+        }
+    }
+
+    // テスト6: 同時アクセス（簡易版）
+    testCase("Concurrent access simulation");
+    // 実際の同時アクセスは1つのFreeFEMプロセスでシミュレートできないが
+    // 複数回の連続アクセスでのエラーチェック
+    for (int i = 0; i < 10; i++) {
+        int value = i * 100;
+        res = ShmWriteInt(smname, 8 + i * 4, value);
+        if (res < 0) {
+            handleError("Failed to write in concurrent simulation");
+            break;
+        }
+    }
+    cout << "Concurrent writes simulation passed" << endl;
+
+    // クリーンアップ
+    cout << "Cleaning up test memory" << endl;
+    ShmDestroy(smname);
+
+    // テスト結果の表示
+    cout << "----------------------------------------" << endl;
+    cout << "Tests completed: " << tests << endl;
+    cout << "Errors detected: " << errors << endl;
+    if (errors == 0) {
+        cout << "All error handling tests passed successfully!" << endl;
+    } else {
+        cout << "Some error handling tests failed!" << endl;
+    }
+
+} catch(...) {
+    cout << "Unexpected exception during tests!" << endl;
+    errors++;
+}
+
+cout << "Error handling test done!" << endl; 
