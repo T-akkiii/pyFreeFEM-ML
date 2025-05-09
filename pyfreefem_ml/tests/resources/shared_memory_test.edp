@@ -1,0 +1,62 @@
+// Simple shared memory test script
+// Version 2.0 - Basic functionality only
+
+cout << "===== Shared Memory Test Start =====" << endl;
+
+// Create test array
+real[int] testArray(5);
+for (int i = 0; i < 5; i++) {
+    testArray[i] = i + 1;
+}
+
+cout << "Created array: ";
+for (int i = 0; i < 5; i++) {
+    cout << testArray[i] << " ";
+}
+cout << endl;
+
+// Load plugin (try only one method)
+cout << "Loading plugin..." << endl;
+
+try {
+    cout << "Loading mmap-semaphore plugin..." << endl;
+    load "/usr/local/lib/ff++/4.10/lib/plugin/mmap-semaphore.so"
+    cout << "Plugin loaded successfully" << endl;
+    
+    // Read data from shared memory
+    cout << "Reading array from shared memory..." << endl;
+    real[int] inputArray(5);
+    ShmReadDoubleArray("test_array", inputArray);
+    
+    cout << "Read array: ";
+    for (int i = 0; i < 5; i++) {
+        cout << inputArray[i] << " ";
+    }
+    cout << endl;
+    
+    // Process data (multiply by 2)
+    for (int i = 0; i < 5; i++) {
+        inputArray[i] = inputArray[i] * 2;
+    }
+    
+    cout << "Array after processing (doubled): ";
+    for (int i = 0; i < 5; i++) {
+        cout << inputArray[i] << " ";
+    }
+    cout << endl;
+    
+    // Write processed results to shared memory
+    cout << "Writing results to shared memory..." << endl;
+    ShmWriteDoubleArray("result_array", inputArray);
+    cout << "Shared memory write completed" << endl;
+}
+catch(string e) {
+    cout << "Error (string exception): " << e << endl;
+    exit(1);
+}
+catch(...) {
+    cout << "Unknown error occurred" << endl;
+    exit(2);
+}
+
+cout << "===== Shared Memory Test Complete =====" << endl; 
