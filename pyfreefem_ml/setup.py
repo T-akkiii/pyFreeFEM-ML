@@ -67,7 +67,8 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/yourusername/pyfreefem-ml",
-    packages=find_packages(),
+    packages=['pyfreefem_ml'],  # Explicitly specify the package
+    package_dir={'pyfreefem_ml': 'pyfreefem_ml'},  # Specify package directory
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
